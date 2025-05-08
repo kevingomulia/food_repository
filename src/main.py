@@ -26,8 +26,6 @@ engine = get_engine()
 
 def main():
     st.title("🍜 The Pot and Ladle")
-    if not utils.check_password():
-        st.stop()
     # Change background color for the tags
     st.markdown("""
         <style>
@@ -45,8 +43,13 @@ def main():
         st.subheader("📝 Submit a New Food Recommendation")
 
         # Fetch MRT station options
-        with engine.connect() as conn:
-            locations = pd.read_sql("SELECT DISTINCT name FROM mrt_stations", conn)['name'].dropna().tolist()
+        try:
+            with engine.connect() as conn:
+                locations = pd.read_sql("SELECT DISTINCT name FROM mrt_stations", conn)['name'].dropna().tolist()
+        except Exception as e:
+            st.error("Failed to load MRT stations.")
+            st.exception(e)
+            st.stop()
 
         with st.form("submit_form"):
             name = st.text_input("Food Place Name", max_chars=250)
@@ -54,6 +57,10 @@ def main():
             price_tag = st.selectbox("Price Tag", ["$", "$$", "$$$", "$$$$+"])
             author = st.text_input("Your Name")
             selected_stations = st.multiselect("Nearby MRT Stations (max 2)", locations)
+            if len(selected_stations) > 2:
+                st.error("Please select a maximum of 2 MRT stations.")
+                selected_stations = selected_stations[:2]
+            recommendations = st.text_area("Recommendations (optional) (comma-separated)", max_chars=500)            
 
             submitted = st.form_submit_button("Submit")
 
@@ -61,59 +68,66 @@ def main():
                 if not name or not selected_stations:
                     st.error("Please provide at least a name and one MRT station.")
                 else:
-                    # Validate inputs
                     validation_errors = utils.validate_input(name, author)
                     if validation_errors:
                         for error in validation_errors:
                             st.error(error)
                     else:
-                        # Sanitize inputs
                         name = name.strip()
                         tags = tags.strip().lower()
-                        author = author.strip().lower()  # Convert author to lowercase
-                        
+                        author = author.strip().lower()
                         date_now = datetime.now().strftime("%Y-%m-%d")
 
-                        with engine.begin() as conn:
-                            result = conn.execute(
-                                text("INSERT INTO submissions (name, tags, price_tag, author, date_submitted) VALUES (:name, :tags, :price_tag, :author, :date_submitted) RETURNING id"),
-                                {"name": name, "tags": tags, "price_tag": price_tag, "author": author, "date_submitted": date_now}
-                            )
-                            submission_id = result.scalar()
-
-                            for station in selected_stations:
-                                conn.execute(
-                                    text("""
-                                        INSERT INTO submission_stations (submission_id, station_id)
-                                        SELECT :submission_id, id FROM mrt_stations WHERE name = :station_name
-                                    """),
-                                    {"submission_id": submission_id, "station_name": station}
+                        try:
+                            with engine.begin() as conn:
+                                result = conn.execute(
+                                    text("INSERT INTO submissions (name, tags, price_tag, author, recommendations, date_submitted) VALUES (:name, :tags, :price_tag, :author, :recommendations, :date_submitted) RETURNING id"),
+                                    {"name": name, "tags": tags, "price_tag": price_tag, "author": author, "recommendations": recommendations, "date_submitted": date_now}
                                 )
+                                submission_id = result.scalar()
 
-                        st.success("🎉 Recommendation submitted successfully!")
+                                for station in selected_stations:
+                                    conn.execute(
+                                        text("""
+                                            INSERT INTO submission_stations (submission_id, station_id)
+                                            SELECT :submission_id, id FROM mrt_stations WHERE name = :station_name
+                                        """),
+                                        {"submission_id": submission_id, "station_name": station}
+                                    )
+                                conn.commit()
+                            st.success("🎉 Recommendation submitted successfully!")
+                        except Exception as e:
+                            st.error("Failed to submit recommendation.")
+                            st.exception(e)
 
     # --- Tab 2: Get Recommendation ---
     with tab2:
-        with engine.connect() as conn:
-            # Extract all unique tags
-            tags_result = conn.execute(text("SELECT tags FROM submissions"))
-            all_tags = set()
-            for row in tags_result:
-                if row.tags:
-                    all_tags.update(tag.strip() for tag in row.tags.split(','))
-            all_tags = sorted(all_tags)
+        try:
+            with engine.connect() as conn:
+                # Extract all unique tags
+                tags_result = conn.execute(text("SELECT tags FROM submissions"))
+                all_tags = set()
+                for row in tags_result:
+                    if row.tags:
+                        all_tags.update(tag.strip() for tag in row.tags.split(','))
+                all_tags = sorted(all_tags)
 
-            authors = pd.read_sql("SELECT DISTINCT author FROM submissions WHERE author IS NOT NULL", conn)['author'].dropna().tolist()
-            locations = pd.read_sql("SELECT DISTINCT name FROM mrt_stations", conn)['name'].dropna().tolist()
+                authors = pd.read_sql("SELECT DISTINCT author FROM submissions WHERE author IS NOT NULL", conn)['author'].dropna().tolist()
+                locations = pd.read_sql("SELECT DISTINCT name FROM mrt_stations", conn)['name'].dropna().tolist()
+        except Exception as e:
+            st.error("Failed to load filter options.")
+            st.exception(e)
+            st.stop()
 
         search_name = st.sidebar.text_input("Search by Name")
         selected_tags = st.sidebar.multiselect("Tags", all_tags)
         selected_price = st.sidebar.selectbox("Price Tag", ["(Any)", "$", "$$", "$$$", "$$$$+"])
         selected_author = st.sidebar.selectbox("Author", ["(Any)"] + authors)
         selected_location = st.sidebar.selectbox("Nearest MRT", ["(Any)"] + locations)
+        search_recommendations = st.sidebar.text_input("Search by Food Items")
 
         query = """
-        SELECT s.name, s.tags, s.price_tag, s.author, s.date_submitted, ARRAY_AGG(ms.name) AS station_names
+        SELECT s.name, s.tags, s.price_tag, s.author, s.recommendations, s.date_submitted, ARRAY_AGG(ms.name) AS station_names
         FROM submissions s
         JOIN submission_stations ss ON s.id = ss.submission_id
         JOIN mrt_stations ms ON ss.station_id = ms.id
@@ -142,19 +156,29 @@ def main():
             conditions.append("ms.name = :location")
             params["location"] = selected_location
 
+        if search_recommendations:
+            conditions.append("s.recommendations ILIKE :recommendations")
+            params["recommendations"] = f"%{search_recommendations}%"
+
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
         query += " GROUP BY s.id ORDER BY s.date_submitted DESC"
 
-        with engine.connect() as conn:
-            results = pd.read_sql(text(query), conn, params=params)
+        try:
+            with engine.connect() as conn:
+                results = pd.read_sql(text(query), conn, params=params)
+        except Exception as e:
+            st.error("Failed to load search results.")
+            st.exception(e)
+            st.stop()
 
         results = results.rename(columns={
             "name": "Name",
             "tags": "Tags",
             "price_tag": "Price",
             "author": "Author",
+            "recommendations": "Food Item Recommendations",
             "date_submitted": "Date Submitted",
             "station_names": "Nearby MRT Stations"
         })
