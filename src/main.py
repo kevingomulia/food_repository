@@ -3,8 +3,7 @@ import streamlit as st
 import psycopg2
 import os
 import pandas as pd
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, Engine
 from datetime import datetime
 
 # run this before importing local modules
@@ -17,13 +16,13 @@ st.set_page_config(
 
 # Import local modules
 import utils
-load_dotenv()
 
-# Database config
-DATABASE_URL = os.getenv("DB_LOCAL_URL")
-# DATABASE_URL = os.getenv("DATABASE_URL")
+@st.cache_resource
+def get_engine() -> Engine:
+    engine_url = st.secrets["DATABASE_URL"]
+    return create_engine(engine_url)
 
-engine = create_engine(DATABASE_URL)
+engine = get_engine()
 
 def main():
     st.title("🍜 The Pot and Ladle")
