@@ -1,0 +1,10 @@
+httpx
+loguru
+psycopg2-binary
+pydantic
+requests
+sqlalchemy
+streamlit
+streamlit_code_editor
+watchdog
+python-dotenv
