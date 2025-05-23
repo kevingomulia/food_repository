@@ -8,8 +8,8 @@ def get_filter_options():
     for row in tag_rows["tags"].dropna():
         tags.update(t.strip() for t in row.split(","))
 
-    authors = fetch_dataframe("SELECT DISTINCT author FROM submissions WHERE author IS NOT NULL")["author"].dropna().tolist()
-    locations = fetch_dataframe("SELECT DISTINCT name FROM mrt_stations")["name"].dropna().tolist()
+    authors = fetch_dataframe("SELECT DISTINCT author FROM submissions WHERE author IS NOT NULL ORDER BY author ASC")["author"].dropna().tolist()
+    locations = fetch_dataframe("SELECT DISTINCT name FROM mrt_stations ORDER BY name ASC")["name"].dropna().tolist()
 
     return sorted(tags), authors, locations
 

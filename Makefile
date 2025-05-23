@@ -39,5 +39,5 @@ db: ## Run a Postgres database with env vars that matches the DATABASE_URL env v
 
 
 run: install ## Run with dev dependencies
-	venv/bin/python -m streamlit run src/app.py
+	venv/bin/python -m streamlit run src/main.py
 
