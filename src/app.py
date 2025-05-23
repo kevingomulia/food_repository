@@ -3,21 +3,39 @@ import pandas as pd
 from utils.db import fetch_dataframe
 from utils.form import submit_recommendation
 from utils.search import get_filter_options, search_submissions
+from utils.google_maps import resolve_gmaps_shortlink, extract_coordinates_from_url, extract_place_name_from_gmaps, get_nearest_mrt_stations
 
-st.set_page_config(page_title="🍜 The Pot and Ladle", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="🍜 Eat Where Leh?", layout="wide", initial_sidebar_state="expanded")
+
 
 def render_submit_tab():
     st.subheader("📝 Submit a New Food Recommendation")
     locations = fetch_dataframe("SELECT DISTINCT name FROM mrt_stations ORDER BY name")["name"].dropna().tolist()
     cuisines = fetch_dataframe("SELECT DISTINCT name FROM cuisines ORDER BY name")["name"].dropna().tolist()
 
+    # Optionally let users paste Google Maps shortlink
+    gmaps_link = st.text_input("📍 Google Maps Link (optional)")
+
+    # Try parsing Google Maps Link to get coordinates and auto-suggest MRT stations and place name
+    default_name = ""
+    auto_stations = []
+    if gmaps_link:
+        resolved = resolve_gmaps_shortlink(gmaps_link)
+        lat, lon = extract_coordinates_from_url(resolved)
+        default_name = extract_place_name_from_gmaps(resolved)
+        if lat and lon:
+            auto_stations = get_nearest_mrt_stations(lat, lon)
+            if auto_stations:
+                st.info(f"Auto-suggested MRT: {', '.join(auto_stations)}")
+
     with st.form("submit_form"):
         data = {
-            "name": st.text_input("Food Place Name", max_chars=250),
+            "name": st.text_input("Food Place Name", max_chars=250, value=default_name),
             "tags": st.multiselect("Cuisine Tags (comma-separated)", cuisines),
             "price_tag": st.selectbox("Price Tag", ["$", "$$", "$$$", "$$$$+"]),
             "author": st.text_input("Your Name"),
-            "stations": st.multiselect("Nearby MRT Stations (max 2)", locations),
+            "stations": st.multiselect("Nearby MRT Stations (max 2)", locations,
+                                       default=auto_stations if not st.session_state.get("submitted", False) else []),
             "recommendations": st.text_area("Recommendations (optional)", max_chars=500)
         }
 
@@ -25,7 +43,10 @@ def render_submit_tab():
             st.error("Please select a maximum of 2 MRT stations.")
             data["stations"] = data["stations"][:2]
 
-        if st.form_submit_button("Submit"):
+        st.session_state["submitted"] = False
+        submitted = st.form_submit_button("Submit")
+        if submitted:
+            st.session_state["submitted"] = True
             if not data["name"] or not data["stations"]:
                 st.error("Please provide at least a name and one MRT station.")
             else:
