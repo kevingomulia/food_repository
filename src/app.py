@@ -5,7 +5,7 @@ from utils.form import submit_recommendation
 from utils.search import get_filter_options, search_submissions
 from utils.google_maps import resolve_gmaps_shortlink, extract_coordinates_from_url, extract_place_name_from_gmaps, get_nearest_mrt_stations
 
-st.set_page_config(page_title="🍜 The Pot and Ladle", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="🍜 Eat Where Leh?", layout="wide", initial_sidebar_state="expanded")
 
 
 def render_submit_tab():
