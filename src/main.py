@@ -85,7 +85,7 @@ def render_search_tab():
     st.dataframe(results, use_container_width=True, hide_index=True)
 
 def main():
-    st.title("🍜 The Pot and Ladle")
+    st.title("🍜 Eat Where Leh?")
     tab1, tab2 = st.tabs(["📝 Submit Recommendation", "🔍 Get Recommendation"])
     with tab1:
         render_submit_tab()
