@@ -1,5 +1,5 @@
-# Koderpad
-An online Python and SQL database playground for testing codes.
+# Food Recs
+Submit your food recommendations and get food recommendations here!
 
 ## Requirements
 1. make
@@ -16,6 +16,6 @@ An online Python and SQL database playground for testing codes.
 
 2. Run database and app
     ```sh
-    $ make db  # run a Postgres db container in the background based on DATABASE_URL in .env
+    $ make db  # run a Postgres db container in the background based on DATABASE_URL in .streamlit/secrets.toml
     $ make run # run the Streamlit app
     ```
