@@ -8,12 +8,13 @@ st.set_page_config(page_title="🍜 The Pot and Ladle", layout="wide", initial_s
 
 def render_submit_tab():
     st.subheader("📝 Submit a New Food Recommendation")
-    locations = fetch_dataframe("SELECT DISTINCT name FROM mrt_stations")["name"].dropna().tolist()
+    locations = fetch_dataframe("SELECT DISTINCT name FROM mrt_stations ORDER BY name")["name"].dropna().tolist()
+    cuisines = fetch_dataframe("SELECT DISTINCT name FROM cuisines ORDER BY name")["name"].dropna().tolist()
 
     with st.form("submit_form"):
         data = {
             "name": st.text_input("Food Place Name", max_chars=250),
-            "tags": st.text_input("Cuisine Tags (comma-separated)", placeholder="e.g. Chinese, Vegetarian"),
+            "tags": st.multiselect("Cuisine Tags (comma-separated)", cuisines),
             "price_tag": st.selectbox("Price Tag", ["$", "$$", "$$$", "$$$$+"]),
             "author": st.text_input("Your Name"),
             "stations": st.multiselect("Nearby MRT Stations (max 2)", locations),
@@ -41,7 +42,7 @@ def render_search_tab():
 
     filters = {
         "name": st.sidebar.text_input("Search by Name"),
-        "tags": st.sidebar.multiselect("Tags", tags),
+        "tags": st.sidebar.multiselect("Cuisines", tags),
         "price": st.sidebar.selectbox("Price Tag", ["(Any)", "$", "$$", "$$$", "$$$$+"]),
         "author": st.sidebar.selectbox("Author", ["(Any)"] + authors),
         "location": st.sidebar.selectbox("Nearest MRT", ["(Any)"] + locations),
@@ -51,7 +52,7 @@ def render_search_tab():
     results = search_submissions(filters)
     results = results.rename(columns={
         "name": "Name",
-        "tags": "Tags",
+        "tags": "Cuisine",
         "price_tag": "Price",
         "author": "Author",
         "recommendations": "Food Item Recommendations",
