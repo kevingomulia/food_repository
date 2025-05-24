@@ -24,9 +24,13 @@ def render_submit_tab():
         lat, lon = extract_coordinates_from_url(resolved)
         default_name = extract_place_name_from_gmaps(resolved)
         if lat and lon:
-            auto_stations = get_nearest_mrt_stations(lat, lon)
-            if auto_stations:
-                st.info(f"Auto-suggested MRT: {', '.join(auto_stations)}")
+            result = get_nearest_mrt_stations(lat, lon)
+            auto_stations = [r["name"] for r in result]
+            distance_info = [f"{r['name']} ({r['distance_km']} km)" for r in result if r["name"] in locations]
+
+            if distance_info:
+                st.warning("Auto-suggested MRT stations may not be accurate with Google Maps short URL. Please verify the location.")
+                st.info("Auto-suggested MRT stations:\n" + "\n".join(distance_info))
 
     with st.form("submit_form"):
         data = {

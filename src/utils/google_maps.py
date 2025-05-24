@@ -21,37 +21,31 @@ def extract_coordinates_from_url(url):
         return float(match.group(1)), float(match.group(2))
     return None, None
 
-def get_nearest_mrt_stations(lat, lon, limit=2, max_distance_km=1.0):
+def get_nearest_mrt_stations(lat, lon, limit=2):
     """Finds the nearest MRT stations within a max distance using the Haversine formula."""
     query = """
         SELECT
             name,
-            (
-                6371 * acos(
-                    cos(radians(:lat)) * cos(radians(latitude)) *
-                    cos(radians(longitude) - radians(:lon)) +
-                    sin(radians(:lat)) * sin(radians(latitude))
+            latitude,
+            longitude,
+            6371 * 2 * ASIN(
+                SQRT(
+                    POWER(SIN(RADIANS(latitude - :lat) / 2), 2) +
+                    COS(RADIANS(:lat)) * COS(RADIANS(latitude)) *
+                    POWER(SIN(RADIANS(longitude - :lon) / 2), 2)
                 )
             ) AS distance
-        FROM mrt_stations
-        WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-        AND (
-            6371 * acos(
-                cos(radians(:lat)) * cos(radians(latitude)) *
-                cos(radians(longitude) - radians(:lon)) +
-                sin(radians(:lat)) * sin(radians(latitude))
-            )
-        ) <= :max_distance_km
-        ORDER BY distance
+        FROM "food"."mrt_stations"
+        ORDER BY distance ASC
         LIMIT :limit;
     """
     try:
         with get_engine().connect() as conn:
             result = conn.execute(
                 text(query),
-                {"lat": lat, "lon": lon, "limit": limit, "max_distance_km": max_distance_km}
+                {"lat": lat, "lon": lon, "limit": limit}
             )
-            return [row.name for row in result]
+            return [{"name": row.name, "distance_km": round(row.distance, 2)} for row in result]
     except Exception as e:
         print("Error:", e)
         return []
