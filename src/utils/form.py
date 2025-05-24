@@ -9,7 +9,7 @@ def submit_recommendation(data):
 
     cleaned_data = {
         "name": data["name"].strip(),
-        "tags": ",".join(t.strip().lower() for t in data["tags"].split(",")),
+        "tags": ",".join(t.strip() for t in data["tags"]),
         "price_tag": data["price_tag"],
         "author": data["author"].strip().lower(),
         "recommendations": data["recommendations"],
