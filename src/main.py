@@ -29,8 +29,8 @@ def render_submit_tab():
             distance_info = [f"{r['name']} ({r['distance_km']} km)" for r in result if r["name"] in locations]
 
             if distance_info:
-                st.warning("Auto-suggested MRT stations may not be accurate with Google Maps short URL. Please verify the location.")
                 st.info("Auto-suggested MRT stations:\n" + "\n".join(distance_info))
+                st.warning("Auto-suggested MRT stations may not be accurate with Google Maps short URL. Please verify the location.")
 
     with st.form("submit_form"):
         data = {
